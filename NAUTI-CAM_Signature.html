@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NAUTI-CAM - Signature electronique</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,sans-serif;background:#f5f5f5;color:#1a1a1a;min-height:100vh;}
+.header{background:#1E4A8A;color:white;padding:14px 24px;text-align:center;}
+.header h1{font-size:20px;font-weight:700;}.header h1 span{color:#C9901A;}
+.header p{font-size:12px;opacity:0.8;margin-top:4px;}
+.container{max-width:860px;margin:0 auto;padding:20px;}
+.card{background:white;border-radius:12px;padding:24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,0.08);}
+.card h2{font-size:17px;color:#1E4A8A;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #e0e0e0;}
+.info{background:#e8f4fd;border:1px solid #b8daff;border-radius:8px;padding:10px 14px;font-size:12px;color:#1E4A8A;margin-bottom:14px;}
+.client-info{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;font-size:12px;}
+.client-info span{padding:5px 10px;background:#f0f6ff;border-radius:5px;border:1px solid #d0e0f0;}
+.doc-frame{border:1px solid #ddd;border-radius:8px;overflow:hidden;margin-bottom:16px;background:white;}
+.doc-frame iframe{width:100%;height:550px;border:none;}
+.paraphe-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px;}
+.paraphe-box{background:#fdf8ed;border:1px solid #C9901A;border-radius:8px;padding:10px;text-align:center;}
+.paraphe-box h4{font-size:11px;color:#C9901A;margin-bottom:6px;}
+.paraphe-box canvas{border:1px solid #ddd;border-radius:4px;background:white;cursor:crosshair;touch-action:none;}
+.sig-zone{background:#fdf8ed;border:2px solid #C9901A;border-radius:10px;padding:20px;text-align:center;margin-bottom:16px;}
+.sig-zone h3{font-size:15px;color:#C9901A;margin-bottom:10px;}
+.sig-zone canvas{border:1px solid #ddd;border-radius:6px;background:white;cursor:crosshair;touch-action:none;}
+.btn{padding:11px 22px;border:none;border-radius:7px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;}
+.btn-gold{background:#C9901A;color:white;}.btn-gold:hover{background:#a87815;}
+.btn-grey{background:#e0e0e0;color:#666;}.btn-sm{padding:5px 10px;font-size:11px;}
+.actions{display:flex;justify-content:space-between;margin-top:16px;}
+.steps{display:flex;justify-content:center;gap:6px;margin-bottom:18px;}
+.step-dot{width:11px;height:11px;border-radius:50%;background:#e0e0e0;}
+.step-dot.active{background:#1E4A8A;}.step-dot.done{background:#C9901A;}
+.loading{text-align:center;padding:50px;color:#666;}
+.spinner{width:36px;height:36px;border:3px solid #e0e0e0;border-top-color:#1E4A8A;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 14px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.success{text-align:center;padding:40px;}.success h2{color:#27ae60;margin-bottom:10px;}
+.error{text-align:center;padding:40px;color:#e74c3c;}
+.progress-bar{height:6px;background:#e0e0e0;border-radius:3px;margin-top:12px;overflow:hidden;}
+.progress-bar-fill{height:100%;background:#C9901A;border-radius:3px;transition:width .3s;width:0%;}
+</style>
+</head>
+<body>
+<div class="header"><h1>NAUTI-<span>CAM</span></h1><p>Signature electronique de document</p></div>
+<div class="container">
+  <div id="v_load" class="card loading"><div class="spinner"></div><p>Chargement du document...</p></div>
+  <div id="v_err" style="display:none;" class="card error"><h2>Lien invalide ou expire</h2><p>Ce lien n'est plus valide. Contactez NAUTI-CAM.</p></div>
+
+  <div id="v_main" style="display:none;">
+    <div class="steps"><div class="step-dot active" id="sd1"></div><div class="step-dot" id="sd2"></div><div class="step-dot" id="sd3"></div></div>
+    <div class="client-info" id="cl_info"></div>
+
+    <!-- ETAPE 1 -->
+    <div id="s1" class="card">
+      <h2>1. Consultez votre document</h2>
+      <div class="info">Lisez attentivement le document complet (contrat + CGV) avant de signer.</div>
+      <div class="doc-frame"><iframe id="doc_iframe" sandbox="allow-same-origin"></iframe></div>
+      <div class="actions"><span></span><button class="btn btn-gold" onclick="go(2)">J'ai lu, parapher</button></div>
+    </div>
+
+    <!-- ETAPE 2 -->
+    <div id="s2" style="display:none;" class="card">
+      <h2>2. Paraphez et signez</h2>
+      <div class="info">Paraphez chaque page (vos initiales) puis signez en bas.</div>
+      <div class="paraphe-row" id="par_list"></div>
+      <div class="sig-zone">
+        <h3>Votre signature</h3>
+        <canvas id="sig_c" width="460" height="160"></canvas>
+        <br><button class="btn btn-sm btn-grey" onclick="clr('sig_c')" style="margin-top:6px;">Effacer</button>
+      </div>
+      <div class="actions">
+        <button class="btn btn-grey" onclick="go(1)">Retour</button>
+        <button class="btn btn-gold" id="btn_sub" onclick="submit()">Valider et envoyer</button>
+      </div>
+      <div class="progress-bar" id="pbar" style="display:none;"><div class="progress-bar-fill" id="pbar_fill"></div></div>
+    </div>
+
+    <!-- ETAPE 3 -->
+    <div id="s3" style="display:none;" class="card success">
+      <div style="font-size:48px;margin-bottom:14px;">&#10003;</div>
+      <h2>Document signe avec succes !</h2>
+      <p style="color:#666;">Le document signe a ete envoye a NAUTI-CAM et une copie vous a ete adressee par email.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+var D=null,NP=5;
+
+(function(){
+  var p=new URLSearchParams(location.search),id=p.get('bin');
+  if(!id){err();return;}
+  fetch('https://api.jsonbin.io/v3/b/'+id+'/latest')
+    .then(function(r){if(!r.ok)throw 0;return r.json();})
+    .then(function(j){D=j.record;init();})
+    .catch(err);
+})();
+
+function err(){document.getElementById('v_load').style.display='none';document.getElementById('v_err').style.display='block';}
+
+function init(){
+  document.getElementById('v_load').style.display='none';
+  document.getElementById('v_main').style.display='block';
+  var i='';
+  if(D.clientNom)i+='<span><strong>'+D.clientNom+'</strong></span>';
+  if(D.typeDoc)i+='<span>'+D.typeDoc+'</span>';
+  if(D.genDate)i+='<span>'+new Date(D.genDate).toLocaleDateString('fr-FR')+'</span>';
+  document.getElementById('cl_info').innerHTML=i;
+  document.getElementById('doc_iframe').srcdoc=D.htmlContent||'<p>Document non disponible</p>';
+  var h='';
+  for(var x=0;x<NP;x++){
+    h+='<div class="paraphe-box"><h4>Page '+(x+1)+'</h4>'
+      +'<canvas id="p'+x+'" width="140" height="60"></canvas>'
+      +'<br><button class="btn btn-sm btn-grey" onclick="clr(\'p'+x+'\')" style="margin-top:4px;">Effacer</button></div>';
+  }
+  document.getElementById('par_list').innerHTML=h;
+  setTimeout(function(){for(var x=0;x<NP;x++)bindC('p'+x);bindC('sig_c');},200);
+}
+
+function go(n){
+  ['s1','s2','s3'].forEach(function(id,i){document.getElementById(id).style.display=(i===n-1?'block':'none');});
+  for(var i=1;i<=3;i++){var d=document.getElementById('sd'+i);d.className='step-dot'+(i<n?' done':'')+(i===n?' active':'');}
+  window.scrollTo(0,0);
+}
+
+async function submit(){
+  // Verifier paraphes
+  for(var x=0;x<NP;x++){if(empty('p'+x)){alert('Veuillez parapher la page '+(x+1));return;}}
+  if(empty('sig_c')){alert('Veuillez signer.');return;}
+
+  var btn=document.getElementById('btn_sub');
+  btn.disabled=true;btn.textContent='Generation du PDF...';
+  document.getElementById('pbar').style.display='block';
+  prog(10);
+
+  try{
+    // Generer PDF avec signatures integrees
+    var pdf=await buildSignedPDF();
+    prog(70);
+
+    btn.textContent='Envoi par email...';
+    var pdfB64=pdf.output('datauristring').split(',')[1];
+
+    // Envoyer au admin
+    if(D.brevoKey&&D.adminEmail){
+      var fname=(D.typeDoc||'Document').replace(/\s/g,'_')+'_SIGNE_'+D.clientNom.replace(/\s/g,'_')+'.pdf';
+      await fetch('https://api.brevo.com/v3/smtp/email',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','api-key':D.brevoKey},
+        body:JSON.stringify({
+          sender:{name:D.clientNom||'Client',email:D.adminEmail},
+          to:[{email:D.adminEmail,name:D.expediteur||'NAUTI-CAM'}],
+          subject:'SIGNE - '+(D.typeDoc||'Document')+' - '+(D.clientNom||''),
+          htmlContent:'<p>Le document <strong>'+(D.typeDoc||'')+' </strong> a ete signe par <strong>'+D.clientNom+'</strong> le '+new Date().toLocaleString('fr-FR')+'.</p><p>Le PDF signe est en piece jointe.</p>',
+          attachment:[{content:pdfB64,name:fname}]
+        })
+      });
+      prog(85);
+
+      // Copie au client
+      if(D.clientEmail){
+        await fetch('https://api.brevo.com/v3/smtp/email',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','api-key':D.brevoKey},
+          body:JSON.stringify({
+            sender:{name:D.expediteur||'NAUTI-CAM',email:D.adminEmail},
+            to:[{email:D.clientEmail,name:D.clientNom||'Client'}],
+            subject:'Votre document signe - '+(D.typeDoc||'')+' - NAUTI-CAM',
+            htmlContent:'<p>Bonjour '+(D.clientNom||'')+',</p><p>Veuillez trouver ci-joint votre <strong>'+(D.typeDoc||'document')+'</strong> signe.</p><p>Merci de votre confiance !<br>NAUTI-CAM</p>',
+            attachment:[{content:pdfB64,name:fname}]
+          })
+        });
+      }
+    }
+    prog(100);
+    go(3);
+  }catch(e){
+    console.error(e);
+    btn.disabled=false;btn.textContent='Valider et envoyer';
+    alert('Erreur lors de la generation. Veuillez reessayer.');
+  }
+}
+
+async function buildSignedPDF(){
+  var jsPDF=window.jspdf.jsPDF;
+  var pdf=new jsPDF({unit:'mm',format:'a4'});
+  var pw=210,ph=297,margin=10;
+
+  // Rendre le HTML du document dans un conteneur cache
+  var container=document.createElement('div');
+  container.style.cssText='position:absolute;left:-9999px;top:0;width:794px;background:white;';
+  container.innerHTML=D.htmlContent||'';
+  document.body.appendChild(container);
+
+  // Capturer le contenu en image
+  var canvas=await html2canvas(container,{scale:2,useCORS:true,width:794});
+  document.body.removeChild(container);
+
+  var imgData=canvas.toDataURL('image/jpeg',0.92);
+  var imgW=pw-margin*2;
+  var imgH=(canvas.height*imgW)/canvas.width;
+  var pageContentH=ph-margin*2-20; // 20mm reserve pour paraphe en bas
+
+  // Decouper en pages
+  var totalPages=Math.ceil(imgH/pageContentH);
+  if(totalPages<NP) totalPages=NP;
+  var sliceH=pageContentH;
+
+  for(var p=0;p<totalPages;p++){
+    if(p>0) pdf.addPage();
+    // Portion de l'image pour cette page
+    var sy=p*sliceH*(canvas.width/imgW)*2;
+    var sh=sliceH*(canvas.width/imgW)*2;
+    if(sy+sh>canvas.height) sh=canvas.height-sy;
+    if(sh<=0) sh=1;
+
+    // Creer un canvas de la portion
+    var pageCanvas=document.createElement('canvas');
+    pageCanvas.width=canvas.width;
+    pageCanvas.height=Math.round(sh);
+    var pctx=pageCanvas.getContext('2d');
+    pctx.drawImage(canvas,0,Math.round(sy),canvas.width,Math.round(sh),0,0,canvas.width,Math.round(sh));
+    var pageImg=pageCanvas.toDataURL('image/jpeg',0.90);
+    var drawH=Math.min(sliceH,(sh*imgW)/canvas.width);
+    pdf.addImage(pageImg,'JPEG',margin,margin,imgW,drawH);
+
+    // Ajouter paraphe client en bas de chaque page
+    var pIdx=Math.min(p,NP-1);
+    var pCanvas=document.getElementById('p'+pIdx);
+    if(pCanvas&&!empty('p'+pIdx)){
+      var pImg=pCanvas.toDataURL('image/png');
+      pdf.addImage(pImg,'PNG',pw-margin-35,ph-margin-15,30,12);
+      pdf.setFontSize(6);
+      pdf.setTextColor(150);
+      pdf.text('Paraphe p.'+(p+1),pw-margin-35,ph-margin-2);
+    }
+  }
+
+  // Derniere page: signatures
+  pdf.addPage();
+  pdf.setFontSize(10);pdf.setTextColor(30,74,138);
+  pdf.text('Signatures',margin,margin+5);
+  pdf.setDrawColor(201,144,26);pdf.setLineWidth(0.5);
+
+  // Cadre signature NAUTI-CAM
+  pdf.rect(margin,margin+10,85,40);
+  pdf.setFontSize(8);pdf.setTextColor(201,144,26);
+  pdf.text('NAUTI-CAM - Signature et cachet',margin+2,margin+15);
+  if(D.nautiSignature){
+    try{pdf.addImage(D.nautiSignature,'PNG',margin+5,margin+18,40,25);}catch(e){}
+  }
+  if(D.nautiTampon){
+    try{pdf.addImage(D.nautiTampon,'PNG',margin+50,margin+18,30,25);}catch(e){}
+  }
+
+  // Cadre signature client
+  pdf.rect(pw/2+5,margin+10,85,40);
+  pdf.text('Client - Lu et approuve, signature',pw/2+7,margin+15);
+  var sigCanvas=document.getElementById('sig_c');
+  if(sigCanvas){
+    var sigImg=sigCanvas.toDataURL('image/png');
+    pdf.addImage(sigImg,'PNG',pw/2+10,margin+18,70,28);
+  }
+
+  // Date
+  pdf.setFontSize(8);pdf.setTextColor(100);
+  pdf.text('Signe electroniquement le '+new Date().toLocaleString('fr-FR'),margin,margin+60);
+  pdf.text('Document : '+(D.typeDoc||''),margin,margin+65);
+  pdf.text('Client : '+(D.clientNom||''),margin,margin+70);
+
+  return pdf;
+}
+
+function prog(v){document.getElementById('pbar_fill').style.width=v+'%';}
+
+// Canvas
+function bindC(id){
+  var c=document.getElementById(id);if(!c)return;
+  var ctx=c.getContext('2d'),dr=false,lx,ly;
+  function pos(e){var r=c.getBoundingClientRect(),t=e.touches?e.touches[0]:e;return{x:(t.clientX-r.left)*(c.width/r.width),y:(t.clientY-r.top)*(c.height/r.height)};}
+  function dn(e){e.preventDefault();dr=true;var p=pos(e);lx=p.x;ly=p.y;}
+  function mv(e){if(!dr)return;e.preventDefault();var p=pos(e);ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(p.x,p.y);ctx.strokeStyle='#1a1a1a';ctx.lineWidth=2;ctx.lineCap='round';ctx.stroke();lx=p.x;ly=p.y;}
+  function up(){dr=false;}
+  c.addEventListener('mousedown',dn);c.addEventListener('mousemove',mv);c.addEventListener('mouseup',up);c.addEventListener('mouseleave',up);
+  c.addEventListener('touchstart',dn);c.addEventListener('touchmove',mv);c.addEventListener('touchend',up);
+}
+function clr(id){var c=document.getElementById(id);if(c)c.getContext('2d').clearRect(0,0,c.width,c.height);}
+function empty(id){var c=document.getElementById(id);if(!c)return true;var d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;for(var i=3;i<d.length;i+=4)if(d[i]>0)return false;return true;}
+</script>
+</body>
+</html>
