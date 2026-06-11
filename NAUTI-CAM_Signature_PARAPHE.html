@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signature avec Paraphe - NAUTI-CAM</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,sans-serif;background:#f5f5f2;padding:20px;}
+.container{max-width:900px;margin:0 auto;background:white;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.1);overflow:hidden;}
+.header{background:linear-gradient(135deg,#1a1a2e,#0f3460);padding:24px;color:white;text-align:center;}
+.header h1{font-size:24px;margin-bottom:4px;}
+.header h1 span{color:#C9901A;}
+.content{padding:30px;}
+.step{display:none;}
+.step.active{display:block;}
+.step-title{font-size:20px;color:#C9901A;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #C9901A;}
+.doc-viewer{max-height:500px;overflow-y:auto;border:1px solid #ddd;border-radius:8px;padding:20px;background:#fafafa;margin-bottom:20px;}
+.info-box{background:#EAF3DE;border:1px solid #97C459;border-radius:8px;padding:15px;margin-bottom:20px;font-size:14px;color:#3B6D11;}
+.info-box.warn{background:#FFF3CD;border-color:#ffc107;color:#856404;}
+.info-box.error{background:#FCEBEB;border-color:#E24B4A;color:#A32D2D;}
+.field{margin-bottom:15px;}
+.field label{display:block;font-weight:600;margin-bottom:6px;color:#333;}
+.field input{width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;}
+
+/* Pages avec paraphe */
+.page-container{margin-bottom:30px;border:2px solid #e0ddd6;border-radius:10px;padding:15px;background:#fafafa;}
+.page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;padding-bottom:10px;border-bottom:2px solid #C9901A;}
+.page-number{font-size:16px;font-weight:700;color:#C9901A;}
+.page-status{font-size:14px;color:#888;}
+.page-status.done{color:#27ae60;font-weight:600;}
+.page-content{background:white;border:1px solid #ddd;border-radius:8px;padding:15px;margin-bottom:15px;min-height:200px;max-height:300px;overflow-y:auto;font-size:12px;}
+.paraphe-section{background:#fffef8;border:2px dashed #C9901A;border-radius:8px;padding:15px;}
+.paraphe-label{font-size:13px;font-weight:600;color:#C9901A;margin-bottom:10px;}
+.paraphe-canvas{border:2px solid #C9901A;border-radius:6px;background:white;cursor:crosshair;display:block;width:100%;max-width:400px;}
+.paraphe-buttons{display:flex;gap:10px;margin-top:10px;}
+
+.signature-pad{border:2px solid #C9901A;border-radius:10px;background:white;margin:20px 0;cursor:crosshair;display:block;width:100%;}
+.buttons{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;}
+.btn{flex:1;min-width:150px;padding:14px;border:none;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s;}
+.btn-primary{background:#C9901A;color:white;}
+.btn-primary:hover{background:#b07d14;}
+.btn-primary:disabled{background:#ccc;cursor:not-allowed;}
+.btn-secondary{background:#888;color:white;}
+.btn-secondary:hover{background:#666;}
+.btn-danger{background:#c0392b;color:white;flex:0 0 auto;}
+.btn-danger:hover{background:#a02818;}
+.btn-success{background:#27ae60;color:white;flex:0 0 auto;}
+.btn-success:hover{background:#1e8449;}
+.loader{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:none;align-items:center;justify-content:center;z-index:9999;}
+.loader.active{display:flex;}
+.loader-content{background:white;padding:40px;border-radius:12px;text-align:center;max-width:400px;}
+.spinner{border:4px solid #f3f3f3;border-top:4px solid #C9901A;border-radius:50%;width:50px;height:50px;animation:spin 1s linear infinite;margin:0 auto 20px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.success{text-align:center;padding:40px;}
+.success-icon{font-size:64px;margin-bottom:20px;}
+.progress-bar{background:#e0ddd6;height:8px;border-radius:4px;margin-bottom:20px;overflow:hidden;}
+.progress-fill{background:#C9901A;height:100%;transition:width 0.3s;}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+
+<div class="loader" id="loader">
+  <div class="loader-content">
+    <div class="spinner"></div>
+    <p id="loader_msg" style="font-size:16px;font-weight:600;">Chargement...</p>
+  </div>
+</div>
+
+<div class="container">
+  <div class="header">
+    <h1>NAUTI<span>-CAM</span></h1>
+    <p>Signature Électronique avec Paraphe</p>
+  </div>
+
+  <div class="content">
+    <!-- Étape 1: Lecture du document -->
+    <div class="step active" id="step1">
+      <div class="step-title">📄 Lecture du document</div>
+      <div class="info-box">
+        <strong>Veuillez lire attentivement le document ci-dessous</strong><br>
+        Faites défiler pour lire l'intégralité avant de continuer.
+      </div>
+      <div class="doc-viewer" id="doc_content"></div>
+      <div class="buttons">
+        <button class="btn btn-primary" onclick="goToStep(2)">J'ai lu, continuer →</button>
+      </div>
+    </div>
+
+    <!-- Étape 2: Informations du signataire -->
+    <div class="step" id="step2">
+      <div class="step-title">✍️ Vos informations</div>
+      <div class="info-box">
+        Veuillez confirmer vos informations avant de continuer.
+      </div>
+      <div class="field">
+        <label>Nom complet *</label>
+        <input type="text" id="sign_nom" placeholder="Jean DUPONT" required>
+      </div>
+      <div class="field">
+        <label>Email *</label>
+        <input type="email" id="sign_email" placeholder="jean@email.fr" required>
+      </div>
+      <div class="buttons">
+        <button class="btn btn-secondary" onclick="goToStep(1)">← Retour</button>
+        <button class="btn btn-primary" onclick="validateInfo()">Continuer →</button>
+      </div>
+    </div>
+
+    <!-- Étape 3: Paraphe de chaque page -->
+    <div class="step" id="step3">
+      <div class="step-title">✍️ Paraphe de chaque page</div>
+      <div class="info-box">
+        Vous devez parapher <strong>chaque page</strong> du document avec vos initiales.<br>
+        Paraphez dans les cadres ci-dessous.
+      </div>
+
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress_fill" style="width:0%"></div>
+      </div>
+
+      <div id="pages_container"></div>
+
+      <div class="buttons">
+        <button class="btn btn-secondary" onclick="goToStep(2)">← Retour</button>
+        <button class="btn btn-primary" id="btn_continue_paraphe" onclick="validateParaphes()" disabled>
+          Continuer → (0/<span id="total_pages">0</span> paraphes)
+        </button>
+      </div>
+    </div>
+
+    <!-- Étape 4: Signature finale -->
+    <div class="step" id="step4">
+      <div class="step-title">✍️ Signature finale</div>
+      <div class="info-box">
+        Signez dans le cadre ci-dessous pour valider l'ensemble du document.
+      </div>
+      <canvas id="signature_canvas" class="signature-pad" width="840" height="200"></canvas>
+      <div class="buttons">
+        <button class="btn btn-danger" onclick="clearSignature()">🗑️ Effacer</button>
+        <button class="btn btn-secondary" onclick="goToStep(3)">← Retour</button>
+        <button class="btn btn-primary" onclick="submitSignature()">✓ Valider et envoyer</button>
+      </div>
+    </div>
+
+    <!-- Étape 5: Succès -->
+    <div class="step" id="step5">
+      <div class="success">
+        <div class="success-icon">✅</div>
+        <h2 style="color:#27ae60;margin-bottom:10px;">Document signé avec succès!</h2>
+        <p style="color:#666;font-size:14px;">
+          Toutes les pages ont été paraphées et le document a été signé.<br>
+          Vous allez recevoir une copie par email.<br>
+          Vous pouvez fermer cette fenêtre.
+        </p>
+      </div>
+    </div>
+
+    <!-- Erreur -->
+    <div class="step" id="step_error" style="display:none;">
+      <div style="text-align:center;padding:40px;">
+        <div style="font-size:64px;margin-bottom:20px;">⚠️</div>
+        <h2 style="margin-bottom:10px;">Lien invalide</h2>
+        <p style="color:#666;">Ce lien de signature semble invalide ou a expiré.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var signData = null;
+var pages = [];
+var paraphesDone = 0;
+var signatureCanvas = null;
+var currentDrawingCanvas = null;
+var drawing = false;
+
+// Charger les données
+function loadData(){
+  try{
+    var hashData = window.location.hash.substring(1);
+    if(!hashData || hashData.length < 10){
+      document.getElementById('step_error').style.display = 'block';
+      document.getElementById('step1').style.display = 'none';
+      return;
+    }
+
+    var jsonStr = decodeURIComponent(escape(atob(hashData)));
+    signData = JSON.parse(jsonStr);
+
+    console.log('✓ Données chargées');
+
+    if(signData.htmlContent){
+      document.getElementById('doc_content').innerHTML = signData.htmlContent;
+    }
+
+    if(signData.clientNom) document.getElementById('sign_nom').value = signData.clientNom;
+    if(signData.clientEmail) document.getElementById('sign_email').value = signData.clientEmail;
+
+  }catch(e){
+    console.error('Erreur chargement:', e);
+    document.getElementById('step_error').style.display = 'block';
+    document.getElementById('step1').style.display = 'none';
+  }
+}
+
+// Diviser le document en pages
+function divideIntoPages(){
+  var docContent = document.getElementById('doc_content');
+  var fullHTML = docContent.innerHTML;
+
+  // Découper par <h2> ou par page-break ou par sections
+  // Pour simplifier, on découpe tous les 1200 caractères environ = 1 page A4
+  var chunkSize = 1200;
+  var chunks = [];
+
+  // Méthode alternative: chercher les balises page-break ou diviser intelligemment
+  // Pour l'instant, division simple par taille
+
+  var tempDiv = document.createElement('div');
+  tempDiv.innerHTML = fullHTML;
+
+  // Essayer de détecter les sections naturelles (h1, h2, div avec page-break)
+  var sections = tempDiv.querySelectorAll('h1, h2, [style*="page-break"]');
+
+  if(sections.length > 1){
+    // Utiliser les sections naturelles
+    var currentChunk = '';
+    var allNodes = Array.from(tempDiv.childNodes);
+    var sectionIndexes = [];
+
+    sections.forEach(function(sec){
+      var idx = allNodes.indexOf(sec);
+      if(idx >= 0) sectionIndexes.push(idx);
+    });
+
+    sectionIndexes.push(allNodes.length);
+
+    for(var i = 0; i < sectionIndexes.length - 1; i++){
+      var start = sectionIndexes[i];
+      var end = sectionIndexes[i + 1];
+      var chunk = '';
+      for(var j = start; j < end && j < allNodes.length; j++){
+        if(allNodes[j].outerHTML){
+          chunk += allNodes[j].outerHTML;
+        }else if(allNodes[j].textContent){
+          chunk += allNodes[j].textContent;
+        }
+      }
+      if(chunk.trim()) chunks.push(chunk);
+    }
+  }else{
+    // Division par taille de texte
+    var text = tempDiv.textContent || '';
+    var numPages = Math.max(1, Math.ceil(text.length / 800));
+
+    // Division grossière du HTML
+    var htmlLength = fullHTML.length;
+    var pageSize = Math.ceil(htmlLength / numPages);
+
+    for(var i = 0; i < numPages; i++){
+      var start = i * pageSize;
+      var end = Math.min((i + 1) * pageSize, htmlLength);
+      var chunk = fullHTML.substring(start, end);
+      if(chunk.trim()) chunks.push(chunk);
+    }
+  }
+
+  // S'assurer d'avoir au moins 1 page
+  if(chunks.length === 0){
+    chunks.push(fullHTML);
+  }
+
+  console.log('📄 Document divisé en', chunks.length, 'pages');
+
+  return chunks;
+}
+
+// Créer l'interface de paraphe
+function setupParaphes(){
+  var pageChunks = divideIntoPages();
+  var container = document.getElementById('pages_container');
+  container.innerHTML = '';
+  pages = [];
+
+  document.getElementById('total_pages').textContent = pageChunks.length;
+
+  pageChunks.forEach(function(chunk, index){
+    var pageDiv = document.createElement('div');
+    pageDiv.className = 'page-container';
+    pageDiv.id = 'page_' + index;
+
+    pageDiv.innerHTML =
+      '<div class="page-header">' +
+        '<div class="page-number">📄 Page ' + (index + 1) + ' / ' + pageChunks.length + '</div>' +
+        '<div class="page-status" id="status_' + index + '">⏳ En attente</div>' +
+      '</div>' +
+      '<div class="page-content">' + chunk + '</div>' +
+      '<div class="paraphe-section">' +
+        '<div class="paraphe-label">Paraphez cette page (vos initiales):</div>' +
+        '<canvas id="paraphe_' + index + '" class="paraphe-canvas" width="400" height="80"></canvas>' +
+        '<div class="paraphe-buttons">' +
+          '<button class="btn btn-danger" onclick="clearParaphe(' + index + ')">🗑️ Effacer</button>' +
+          '<button class="btn btn-success" onclick="validateParaphe(' + index + ')">✓ Valider</button>' +
+        '</div>' +
+      '</div>';
+
+    container.appendChild(pageDiv);
+
+    var canvas = document.getElementById('paraphe_' + index);
+    initCanvas(canvas);
+
+    pages.push({
+      index: index,
+      canvas: canvas,
+      dataURL: null,
+      validated: false
+    });
+  });
+}
+
+// Initialiser un canvas
+function initCanvas(canvas){
+  var ctx = canvas.getContext('2d');
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+
+  canvas.addEventListener('mousedown', function(e){startDraw(e, canvas);});
+  canvas.addEventListener('mousemove', function(e){draw(e, canvas);});
+  canvas.addEventListener('mouseup', stopDraw);
+  canvas.addEventListener('mouseleave', stopDraw);
+
+  // Touch
+  canvas.addEventListener('touchstart', function(e){
+    e.preventDefault();
+    var touch = e.touches[0];
+    var rect = canvas.getBoundingClientRect();
+    var mouseEvent = new MouseEvent('mousedown', {
+      clientX: touch.clientX,
+      clientY: touch.clientY
+    });
+    canvas.dispatchEvent(mouseEvent);
+  });
+
+  canvas.addEventListener('touchmove', function(e){
+    e.preventDefault();
+    var touch = e.touches[0];
+    var mouseEvent = new MouseEvent('mousemove', {
+      clientX: touch.clientX,
+      clientY: touch.clientY
+    });
+    canvas.dispatchEvent(mouseEvent);
+  });
+
+  canvas.addEventListener('touchend', function(e){
+    e.preventDefault();
+    stopDraw();
+  });
+}
+
+function startDraw(e, canvas){
+  drawing = true;
+  currentDrawingCanvas = canvas;
+  var rect = canvas.getBoundingClientRect();
+  var x = e.clientX - rect.left;
+  var y = e.clientY - rect.top;
+  var ctx = canvas.getContext('2d');
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+}
+
+function draw(e, canvas){
+  if(!drawing || currentDrawingCanvas !== canvas) return;
+  var rect = canvas.getBoundingClientRect();
+  var x = e.clientX - rect.left;
+  var y = e.clientY - rect.top;
+  var ctx = canvas.getContext('2d');
+  ctx.lineTo(x, y);
+  ctx.stroke();
+}
+
+function stopDraw(){
+  drawing = false;
+  currentDrawingCanvas = null;
+}
+
+function isCanvasEmpty(canvas){
+  var data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+  for(var i = 0; i < data.length; i += 4){
+    if(data[i+3] !== 0) return false;
+  }
+  return true;
+}
+
+function clearParaphe(index){
+  var canvas = document.getElementById('paraphe_' + index);
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  pages[index].validated = false;
+  pages[index].dataURL = null;
+  document.getElementById('status_' + index).textContent = '⏳ En attente';
+  document.getElementById('status_' + index).className = 'page-status';
+
+  updateProgress();
+}
+
+function validateParaphe(index){
+  var canvas = pages[index].canvas;
+
+  if(isCanvasEmpty(canvas)){
+    alert('Veuillez parapher avant de valider.');
+    return;
+  }
+
+  try{
+    var dataURL = canvas.toDataURL('image/png');
+    if(!dataURL || dataURL.length < 100){
+      throw new Error('Conversion PNG échouée');
+    }
+
+    pages[index].dataURL = dataURL;
+    pages[index].validated = true;
+
+    document.getElementById('status_' + index).textContent = '✅ Paraphé';
+    document.getElementById('status_' + index).className = 'page-status done';
+
+    console.log('✓ Page', index + 1, 'paraphée');
+
+    updateProgress();
+
+    // Scroll vers la page suivante
+    if(index < pages.length - 1){
+      var nextPage = document.getElementById('page_' + (index + 1));
+      nextPage.scrollIntoView({behavior: 'smooth', block: 'start'});
+    }
+
+  }catch(e){
+    console.error('Erreur validation paraphe:', e);
+    alert('Erreur lors de la sauvegarde du paraphe. Réessayez.');
+  }
+}
+
+function updateProgress(){
+  var done = pages.filter(function(p){return p.validated;}).length;
+  var total = pages.length;
+  var percent = (done / total) * 100;
+
+  document.getElementById('progress_fill').style.width = percent + '%';
+  document.getElementById('btn_continue_paraphe').textContent =
+    'Continuer → (' + done + '/' + total + ' paraphes)';
+
+  if(done === total){
+    document.getElementById('btn_continue_paraphe').disabled = false;
+  }else{
+    document.getElementById('btn_continue_paraphe').disabled = true;
+  }
+
+  paraphesDone = done;
+}
+
+function validateParaphes(){
+  var allDone = pages.every(function(p){return p.validated;});
+
+  if(!allDone){
+    alert('Vous devez parapher toutes les pages avant de continuer.');
+    return;
+  }
+
+  console.log('✓ Tous les paraphes validés');
+  goToStep(4);
+}
+
+// Signature finale
+function initSignatureCanvas(){
+  signatureCanvas = document.getElementById('signature_canvas');
+  var ctx = signatureCanvas.getContext('2d');
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+
+  signatureCanvas.addEventListener('mousedown', function(e){startDraw(e, signatureCanvas);});
+  signatureCanvas.addEventListener('mousemove', function(e){draw(e, signatureCanvas);});
+  signatureCanvas.addEventListener('mouseup', stopDraw);
+  signatureCanvas.addEventListener('mouseleave', stopDraw);
+
+  // Touch
+  signatureCanvas.addEventListener('touchstart', function(e){
+    e.preventDefault();
+    var touch = e.touches[0];
+    var mouseEvent = new MouseEvent('mousedown', {
+      clientX: touch.clientX,
+      clientY: touch.clientY
+    });
+    signatureCanvas.dispatchEvent(mouseEvent);
+  });
+
+  signatureCanvas.addEventListener('touchmove', function(e){
+    e.preventDefault();
+    var touch = e.touches[0];
+    var mouseEvent = new MouseEvent('mousemove', {
+      clientX: touch.clientX,
+      clientY: touch.clientY
+    });
+    signatureCanvas.dispatchEvent(mouseEvent);
+  });
+
+  signatureCanvas.addEventListener('touchend', function(e){
+    e.preventDefault();
+    stopDraw();
+  });
+}
+
+function clearSignature(){
+  var ctx = signatureCanvas.getContext('2d');
+  ctx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+}
+
+// Navigation
+function goToStep(step){
+  document.querySelectorAll('.step').forEach(function(el){
+    el.classList.remove('active');
+  });
+  document.getElementById('step' + step).classList.add('active');
+
+  if(step === 3){
+    setTimeout(setupParaphes, 100);
+  }else if(step === 4){
+    setTimeout(initSignatureCanvas, 100);
+  }
+}
+
+function validateInfo(){
+  var nom = document.getElementById('sign_nom').value.trim();
+  var email = document.getElementById('sign_email').value.trim();
+
+  if(!nom || !email || email.indexOf('@') < 0){
+    alert('Veuillez remplir tous les champs correctement.');
+    return;
+  }
+
+  goToStep(3);
+}
+
+// Soumettre
+async function submitSignature(){
+  if(isCanvasEmpty(signatureCanvas)){
+    alert('Veuillez signer avant de valider.');
+    return;
+  }
+
+  var nom = document.getElementById('sign_nom').value.trim();
+  var email = document.getElementById('sign_email').value.trim();
+
+  document.getElementById('loader').classList.add('active');
+  document.getElementById('loader_msg').textContent = 'Génération du PDF avec paraphes...';
+
+  try{
+    const { jsPDF } = window.jspdf;
+    var pdf = new jsPDF('p', 'mm', 'a4');
+
+    // Convertir le document complet
+    var docEl = document.getElementById('doc_content');
+    document.getElementById('loader_msg').textContent = 'Conversion du document...';
+
+    const canvas = await html2canvas(docEl, {
+      scale: 2,
+      useCORS: true,
+      logging: false
+    });
+
+    const imgData = canvas.toDataURL('image/png');
+    const pdfWidth = pdf.internal.pageSize.getWidth() - 20;
+    const imgWidth = pdfWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const pageHeight = pdf.internal.pageSize.getHeight() - 30; // Espace pour paraphe
+
+    document.getElementById('loader_msg').textContent = 'Ajout des paraphes...';
+
+    // Ajouter le document page par page avec les paraphes
+    let heightLeft = imgHeight;
+    let position = 0;
+    let pageIndex = 0;
+
+    // Première page
+    pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+
+    // Ajouter le paraphe en bas
+    if(pages[pageIndex] && pages[pageIndex].dataURL){
+      pdf.addImage(pages[pageIndex].dataURL, 'PNG', pdfWidth - 50, pageHeight + 15, 40, 8);
+      pdf.setFontSize(7);
+      pdf.setTextColor(100,100,100);
+      pdf.text('Paraphé', pdfWidth - 48, pageHeight + 26);
+    }
+
+    heightLeft -= pageHeight;
+    pageIndex++;
+
+    // Pages suivantes
+    while(heightLeft > 0 && pageIndex < pages.length){
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+
+      // Paraphe
+      if(pages[pageIndex] && pages[pageIndex].dataURL){
+        pdf.addImage(pages[pageIndex].dataURL, 'PNG', pdfWidth - 50, pageHeight + 15, 40, 8);
+        pdf.setFontSize(7);
+        pdf.setTextColor(100,100,100);
+        pdf.text('Paraphé', pdfWidth - 48, pageHeight + 26);
+      }
+
+      heightLeft -= pageHeight;
+      pageIndex++;
+    }
+
+    // Page de signatures
+    document.getElementById('loader_msg').textContent = 'Ajout des signatures...';
+    pdf.addPage();
+    pdf.setFontSize(16);
+    pdf.setFont(undefined, 'bold');
+    pdf.setTextColor(0,0,0);
+    pdf.text('SIGNATURES', 10, 20);
+
+    pdf.setFontSize(11);
+    pdf.setFont(undefined, 'normal');
+    var now = new Date();
+    pdf.text('Signé le: ' + now.toLocaleDateString('fr-FR') + ' à ' + now.toLocaleTimeString('fr-FR'), 10, 35);
+    pdf.text('Par: ' + nom, 10, 45);
+    pdf.text('Email: ' + email, 10, 55);
+    pdf.text('Pages paraphées: ' + pages.length, 10, 65);
+
+    // Signature client
+    var signDataURL = signatureCanvas.toDataURL('image/png');
+    pdf.addImage(signDataURL, 'PNG', 10, 80, 80, 20);
+
+    // Tampon admin
+    if(signData && signData.adminStamp){
+      pdf.text('Pour NAUTI-CAM:', 120, 45);
+      pdf.addImage(signData.adminStamp, 'PNG', 120, 80, 80, 20);
+    }
+
+    var pdfBase64 = pdf.output('datauristring').split(',')[1];
+
+    // Envoi emails
+    document.getElementById('loader_msg').textContent = 'Envoi des emails...';
+
+    if(!signData.brevoKey){
+      throw new Error('Configuration email manquante');
+    }
+
+    var adminEmail = signData.adminEmail || 'lp.nauticam@gmail.com';
+    var expediteur = signData.expediteur || 'NAUTI-CAM';
+    var typeDoc = signData.typeDoc || 'Document';
+
+    // Email admin
+    await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {'api-key': signData.brevoKey, 'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        sender: {name: nom, email: email},
+        to: [{email: adminEmail, name: 'NAUTI-CAM'}],
+        subject: '[NAUTI-CAM] Document signé par ' + nom,
+        htmlContent: '<h2>Document signé avec paraphes</h2><p><strong>Type:</strong> ' + typeDoc + '</p><p><strong>Client:</strong> ' + nom + '</p><p><strong>Email:</strong> ' + email + '</p><p><strong>Pages paraphées:</strong> ' + pages.length + '</p><p><strong>Date:</strong> ' + now.toLocaleString('fr-FR') + '</p>',
+        attachment: [{content: pdfBase64, name: 'Document_signe_paraphe_' + nom.replace(/\s/g, '_') + '.pdf'}]
+      })
+    });
+
+    // Email client
+    await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {'api-key': signData.brevoKey, 'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        sender: {name: expediteur, email: adminEmail},
+        to: [{email: email, name: nom}],
+        subject: 'Votre document signé avec paraphes - NAUTI-CAM',
+        htmlContent: '<h2>NAUTI-CAM</h2><p>Bonjour <strong>' + nom + '</strong>,</p><p>Votre signature et vos paraphes ont bien été enregistrés.</p><p>Vous avez paraphé <strong>' + pages.length + ' pages</strong> et signé le document.</p><p>Vous trouverez ci-joint le document complet.</p><p>Pour toute question: 06.71.14.23.62</p>',
+        attachment: [{content: pdfBase64, name: 'Document_signe_paraphe.pdf'}]
+      })
+    });
+
+    document.getElementById('loader').classList.remove('active');
+    goToStep(5);
+
+  }catch(e){
+    console.error('Erreur:', e);
+    document.getElementById('loader').classList.remove('active');
+    alert('Erreur lors de l\'envoi: ' + e.message);
+  }
+}
+
+// Init
+loadData();
+</script>
+
+</body>
+</html>
