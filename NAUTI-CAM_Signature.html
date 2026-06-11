@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NAUTI-CAM - Signature electronique</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,sans-serif;background:#f5f5f5;color:#1a1a1a;min-height:100vh;}
+.header{background:#1E4A8A;color:white;padding:16px 24px;text-align:center;}
+.header h1{font-size:20px;font-weight:700;}
+.header h1 span{color:#C9901A;}
+.header p{font-size:13px;opacity:0.8;margin-top:4px;}
+.container{max-width:850px;margin:0 auto;padding:20px;}
+.card{background:white;border-radius:12px;padding:24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,0.08);}
+.card h2{font-size:18px;color:#1E4A8A;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #e0e0e0;}
+.doc-frame{background:white;border:1px solid #ddd;border-radius:8px;overflow:hidden;margin-bottom:20px;}
+.doc-frame iframe{width:100%;height:600px;border:none;}
+.page-nav{display:flex;justify-content:center;align-items:center;gap:12px;margin-bottom:16px;}
+.page-nav button{padding:8px 16px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:#1E4A8A;color:white;}
+.page-nav button:disabled{background:#ccc;cursor:default;}
+.page-nav span{font-size:14px;font-weight:600;color:#1a1a1a;}
+.paraphe-section{margin-bottom:20px;padding:16px;background:#fdf8ed;border:1px solid #C9901A;border-radius:8px;}
+.paraphe-section h3{font-size:14px;color:#C9901A;margin-bottom:10px;}
+.paraphe-section canvas{border:1px solid #ddd;border-radius:6px;background:white;cursor:crosshair;touch-action:none;display:block;margin:0 auto;}
+.signature-section{padding:20px;background:#fdf8ed;border:2px solid #C9901A;border-radius:8px;text-align:center;margin-bottom:20px;}
+.signature-section h3{font-size:16px;color:#C9901A;margin-bottom:12px;}
+.signature-section canvas{border:1px solid #ddd;border-radius:6px;background:white;cursor:crosshair;touch-action:none;display:block;margin:0 auto;}
+.btn{padding:12px 24px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;}
+.btn-gold{background:#C9901A;color:white;}.btn-gold:hover{background:#a87815;}
+.btn-grey{background:#e0e0e0;color:#666;}
+.btn-sm{padding:6px 12px;font-size:12px;}
+.actions{display:flex;justify-content:space-between;margin-top:16px;}
+.loading{text-align:center;padding:60px;color:#666;}
+.spinner{width:40px;height:40px;border:3px solid #e0e0e0;border-top-color:#1E4A8A;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.success{text-align:center;padding:40px;}.success h2{color:#27ae60;margin-bottom:12px;}
+.error{text-align:center;padding:40px;color:#e74c3c;}
+.info{background:#e8f4fd;border:1px solid #b8daff;border-radius:8px;padding:12px;font-size:13px;color:#1E4A8A;margin-bottom:16px;}
+.steps{display:flex;justify-content:center;gap:6px;margin-bottom:20px;}
+.step-dot{width:12px;height:12px;border-radius:50%;background:#e0e0e0;}
+.step-dot.active{background:#1E4A8A;}.step-dot.done{background:#C9901A;}
+.client-info{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;font-size:13px;}
+.client-info span{padding:6px 12px;background:#f0f6ff;border-radius:6px;border:1px solid #d0e0f0;}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>NAUTI-<span>CAM</span></h1>
+  <p>Signature electronique de document</p>
+</div>
+<div class="container">
+  <div id="view_loading" class="card loading"><div class="spinner"></div><p>Chargement du document...</p></div>
+  <div id="view_error" style="display:none;" class="card error"><h2>Lien invalide ou expire</h2><p>Ce lien de signature n'est plus valide. Contactez NAUTI-CAM.</p></div>
+  <div id="view_main" style="display:none;">
+    <div class="steps"><div class="step-dot active" id="sd1"></div><div class="step-dot" id="sd2"></div><div class="step-dot" id="sd3"></div></div>
+    <div class="client-info" id="client_info"></div>
+
+    <!-- ETAPE 1: Lecture -->
+    <div id="step1" class="card">
+      <h2>1. Consultez votre document</h2>
+      <div class="info">Lisez attentivement le document ci-dessous avant de parapher et signer.</div>
+      <div class="doc-frame"><iframe id="doc_iframe" sandbox="allow-same-origin"></iframe></div>
+      <div class="actions"><span></span><button class="btn btn-gold" onclick="goStep(2)">J'ai lu, parapher</button></div>
+    </div>
+
+    <!-- ETAPE 2: Paraphes -->
+    <div id="step2" style="display:none;" class="card">
+      <h2>2. Paraphez chaque page</h2>
+      <div class="info">Dessinez vos initiales dans chaque case ci-dessous (une par page du document).</div>
+      <div id="paraphes_list"></div>
+      <div class="actions">
+        <button class="btn btn-grey" onclick="goStep(1)">Retour</button>
+        <button class="btn btn-gold" onclick="validateParaphes()">Continuer</button>
+      </div>
+    </div>
+
+    <!-- ETAPE 3: Signature -->
+    <div id="step3" style="display:none;" class="card">
+      <h2>3. Signez le document</h2>
+      <div class="info">En signant, vous acceptez les termes du document et des Conditions Generales de Location ci-jointes.</div>
+      <div class="signature-section">
+        <h3>Votre signature</h3>
+        <canvas id="sig_canvas" width="500" height="180"></canvas>
+        <br><button class="btn btn-sm btn-grey" onclick="clearC('sig_canvas')" style="margin-top:8px;">Effacer</button>
+      </div>
+      <div class="actions">
+        <button class="btn btn-grey" onclick="goStep(2)">Retour</button>
+        <button class="btn btn-gold" id="btn_submit" onclick="submitAll()">Valider et envoyer</button>
+      </div>
+    </div>
+
+    <!-- ETAPE 4: Confirmation -->
+    <div id="step4" style="display:none;" class="card success">
+      <div style="font-size:48px;margin-bottom:16px;">&#10003;</div>
+      <h2>Document signe avec succes !</h2>
+      <p style="color:#666;">Votre signature a ete envoyee a NAUTI-CAM.<br>Vous recevrez une copie par email sous peu.</p>
+    </div>
+  </div>
+</div>
+<script>
+var docData=null;
+var NB_PAGES=5;
+
+(function(){
+  var params=new URLSearchParams(window.location.search);
+  var binId=params.get('bin');
+  if(!binId){showErr();return;}
+  fetch('https://api.jsonbin.io/v3/b/'+binId+'/latest')
+    .then(function(r){if(!r.ok)throw new Error(r.status);return r.json();})
+    .then(function(j){docData=j.record;initDoc();})
+    .catch(function(){showErr();});
+})();
+
+function showErr(){
+  document.getElementById('view_loading').style.display='none';
+  document.getElementById('view_error').style.display='block';
+}
+
+function initDoc(){
+  document.getElementById('view_loading').style.display='none';
+  document.getElementById('view_main').style.display='block';
+  // Client info
+  var info='';
+  if(docData.clientNom)info+='<span><strong>'+docData.clientNom+'</strong></span>';
+  if(docData.typeDoc)info+='<span>'+docData.typeDoc+'</span>';
+  if(docData.genDate)info+='<span>'+new Date(docData.genDate).toLocaleDateString('fr-FR')+'</span>';
+  document.getElementById('client_info').innerHTML=info;
+  // Load doc in iframe
+  var iframe=document.getElementById('doc_iframe');
+  iframe.srcdoc=docData.htmlContent||'<p>Document non disponible</p>';
+  // Create paraphes
+  var html='';
+  for(var i=0;i<NB_PAGES;i++){
+    html+='<div class="paraphe-section"><h3>Page '+(i+1)+'/'+NB_PAGES+'</h3>'
+      +'<canvas id="p_'+i+'" width="250" height="80"></canvas>'
+      +' <button class="btn btn-sm btn-grey" onclick="clearC(\'p_'+i+'\')" style="margin-top:6px;">Effacer</button></div>';
+  }
+  document.getElementById('paraphes_list').innerHTML=html;
+  setTimeout(function(){
+    for(var i=0;i<NB_PAGES;i++) bindCanvas('p_'+i);
+    bindCanvas('sig_canvas');
+  },200);
+}
+
+function goStep(n){
+  for(var i=1;i<=4;i++) document.getElementById('step'+i).style.display=(i===n?'block':'none');
+  for(var i=1;i<=3;i++){
+    var d=document.getElementById('sd'+i);
+    d.className='step-dot'+(i<n?' done':'')+(i===n?' active':'');
+  }
+  window.scrollTo(0,0);
+}
+
+function validateParaphes(){
+  for(var i=0;i<NB_PAGES;i++){
+    if(isEmpty('p_'+i)){alert('Veuillez parapher la page '+(i+1));return;}
+  }
+  goStep(3);
+}
+
+async function submitAll(){
+  if(isEmpty('sig_canvas')){alert('Veuillez signer.');return;}
+  var btn=document.getElementById('btn_submit');
+  btn.disabled=true;btn.textContent='Envoi en cours...';
+
+  var sigImg=document.getElementById('sig_canvas').toDataURL('image/png');
+  var paraphesHtml='';
+  for(var i=0;i<NB_PAGES;i++){
+    paraphesHtml+='<div style="display:inline-block;margin:4px;text-align:center;">'
+      +'<div style="font-size:11px;color:#888;">Page '+(i+1)+'</div>'
+      +'<img src="'+document.getElementById('p_'+i).toDataURL('image/png')+'" style="height:40px;border:1px solid #ddd;border-radius:3px;">'
+      +'</div>';
+  }
+
+  var emailHtml='<div style="font-family:Arial;max-width:600px;margin:0 auto;padding:20px;">'
+    +'<div style="background:#1E4A8A;color:white;padding:16px;border-radius:8px 8px 0 0;text-align:center;">'
+    +'<h2 style="margin:0;">Document signe</h2></div>'
+    +'<div style="padding:20px;border:1px solid #ddd;border-top:none;border-radius:0 0 8px 8px;">'
+    +'<p><strong>Client :</strong> '+(docData.clientNom||'')+'</p>'
+    +'<p><strong>Document :</strong> '+(docData.typeDoc||'')+'</p>'
+    +'<p><strong>Date de signature :</strong> '+new Date().toLocaleString('fr-FR')+'</p>'
+    +'<hr style="border:none;border-top:1px solid #eee;margin:16px 0;">'
+    +'<p><strong>Paraphes :</strong></p>'+paraphesHtml
+    +'<hr style="border:none;border-top:1px solid #eee;margin:16px 0;">'
+    +'<p><strong>Signature :</strong></p>'
+    +'<img src="'+sigImg+'" style="max-width:300px;border:1px solid #ddd;border-radius:4px;">'
+    +'</div></div>';
+
+  // Envoyer a l'admin
+  if(docData.brevoKey && docData.adminEmail){
+    try{
+      var resp=await fetch('https://api.brevo.com/v3/smtp/email',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','api-key':docData.brevoKey},
+        body:JSON.stringify({
+          sender:{name:docData.clientNom||'Client',email:docData.adminEmail},
+          to:[{email:docData.adminEmail,name:docData.expediteur||'NAUTI-CAM'}],
+          subject:'Signature recue - '+(docData.typeDoc||'Document')+' - '+(docData.clientNom||''),
+          htmlContent:emailHtml
+        })
+      });
+      if(!resp.ok) console.error('Brevo error',resp.status);
+    }catch(e){console.error('Email error:',e);}
+
+    // Envoyer copie au client
+    if(docData.clientEmail){
+      try{
+        await fetch('https://api.brevo.com/v3/smtp/email',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','api-key':docData.brevoKey},
+          body:JSON.stringify({
+            sender:{name:docData.expediteur||'NAUTI-CAM',email:docData.adminEmail},
+            to:[{email:docData.clientEmail,name:docData.clientNom||'Client'}],
+            subject:'Votre signature - '+(docData.typeDoc||'Document')+' - NAUTI-CAM',
+            htmlContent:'<div style="font-family:Arial;padding:20px;"><h2 style="color:#1E4A8A;">Confirmation de signature</h2>'
+              +'<p>Bonjour '+(docData.clientNom||'')+',</p>'
+              +'<p>Votre signature pour le document <strong>'+(docData.typeDoc||'')+'</strong> a bien ete enregistree le '+new Date().toLocaleDateString('fr-FR')+'.</p>'
+              +'<p>Merci de votre confiance !</p><p>L\'equipe NAUTI-CAM</p></div>'
+          })
+        });
+      }catch(e){}
+    }
+  }
+  goStep(4);
+}
+
+// CANVAS
+function bindCanvas(id){
+  var c=document.getElementById(id);if(!c)return;
+  var ctx=c.getContext('2d'),drawing=false,lx,ly;
+  function pos(e){var r=c.getBoundingClientRect();var t=e.touches?e.touches[0]:e;return{x:(t.clientX-r.left)*(c.width/r.width),y:(t.clientY-r.top)*(c.height/r.height)};}
+  function dn(e){e.preventDefault();drawing=true;var p=pos(e);lx=p.x;ly=p.y;}
+  function mv(e){if(!drawing)return;e.preventDefault();var p=pos(e);ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(p.x,p.y);ctx.strokeStyle='#1a1a1a';ctx.lineWidth=2;ctx.lineCap='round';ctx.stroke();lx=p.x;ly=p.y;}
+  function up(){drawing=false;}
+  c.addEventListener('mousedown',dn);c.addEventListener('mousemove',mv);c.addEventListener('mouseup',up);c.addEventListener('mouseleave',up);
+  c.addEventListener('touchstart',dn);c.addEventListener('touchmove',mv);c.addEventListener('touchend',up);
+}
+function clearC(id){var c=document.getElementById(id);if(c)c.getContext('2d').clearRect(0,0,c.width,c.height);}
+function isEmpty(id){var c=document.getElementById(id);if(!c)return true;var d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;for(var i=3;i<d.length;i+=4)if(d[i]>0)return false;return true;}
+</script>
+</body>
+</html>
